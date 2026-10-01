@@ -1,8 +1,8 @@
-// Logs method, URL and time of every request
 const logger = (req, res, next) => {
-  const time = new Date().toISOString();
-  console.log(`[${time}] ${req.method} ${req.originalUrl}`);
-  next();
-};
 
-module.exports = logger;
+    console.log(req.method, req.url)
+
+    next()
+}
+
+module.exports = logger

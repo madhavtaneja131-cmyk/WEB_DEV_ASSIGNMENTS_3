@@ -1,90 +1,80 @@
-const express = require("express");
-const router = express.Router();
-const students = require("../data/students");
+const express = require("express")
 
-// Helper: validate name & course
-const isValid = (body) =>
-  body &&
-  typeof body.name === "string" && body.name.trim() !== "" &&
-  typeof body.course === "string" && body.course.trim() !== "";
+const students = require("../data/students")
 
-// GET /students - all students
-router.get("/", (req, res) => {
-  res.status(200).json(students);
-});
+const router = express.Router()
 
-// GET /students/:id - one student
-router.get("/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    return res.status(400).json({ message: "ID must be a number" });
-  }
 
-  const student = students.find((s) => s.id === id);
-  if (!student) {
-    return res.status(404).json({ message: "Student not found" });
-  }
-  res.status(200).json(student);
-});
+// GET all students
+router.get("/students", (req, res) => {
+    res.status(200).send(students)
+})
 
-// POST /students - add student
-router.post("/", (req, res) => {
-  if (!isValid(req.body)) {
-    return res
-      .status(400)
-      .json({ message: "Name and course are required" });
-  }
 
-  const newId =
-    students.length > 0 ? Math.max(...students.map((s) => s.id)) + 1 : 1;
+// GET student by ID
+router.get("/students/:id", (req, res) => {
 
-  const newStudent = {
-    id: newId,
-    name: req.body.name.trim(),
-    course: req.body.course.trim(),
-  };
+    let { id } = req.params
 
-  students.push(newStudent);
-  res.status(201).json(newStudent);
-});
+    let student = students.find(student => student.studentId === id)
 
-// PUT /students/:id - update student
-router.put("/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    return res.status(400).json({ message: "ID must be a number" });
-  }
+    if (!student) {
+        return res.status(404).send("Student Not Found")
+    }
 
-  const student = students.find((s) => s.id === id);
-  if (!student) {
-    return res.status(404).json({ message: "Student not found" });
-  }
+    res.status(200).send(student)
+})
 
-  if (!isValid(req.body)) {
-    return res
-      .status(400)
-      .json({ message: "Name and course are required" });
-  }
 
-  student.name = req.body.name.trim();
-  student.course = req.body.course.trim();
-  res.status(200).json(student);
-});
+// POST new student
+router.post("/students", (req, res) => {
 
-// DELETE /students/:id - remove student
-router.delete("/:id", (req, res) => {
-  const id = parseInt(req.params.id);
-  if (isNaN(id)) {
-    return res.status(400).json({ message: "ID must be a number" });
-  }
+    let newStudent = req.body
 
-  const index = students.findIndex((s) => s.id === id);
-  if (index === -1) {
-    return res.status(404).json({ message: "Student not found" });
-  }
+    if (!newStudent.name || !newStudent.email) {
+        return res.status(400).send("Name and email are required")
+    }
 
-  const deleted = students.splice(index, 1)[0];
-  res.status(200).json({ message: "Student deleted", student: deleted });
-});
+    students.push(newStudent)
 
-module.exports = router;
+    res.status(201).send("Student Added Successfully")
+})
+
+
+// PUT update student
+router.put("/students/:id", (req, res) => {
+
+    let { id } = req.params
+
+    let student = students.find(student => student.studentId === id)
+
+    if (!student) {
+        return res.status(404).send("Student Not Found")
+    }
+
+    Object.assign(student, req.body)
+
+    res.status(200).send("Student Updated Successfully")
+})
+
+
+// DELETE student
+router.delete("/students/:id", (req, res) => {
+
+    let { id } = req.params
+
+    let student = students.find(student => student.studentId === id)
+
+    if (!student) {
+        return res.status(404).send("Student Not Found")
+    }
+
+    let index = students.indexOf(student)
+
+    students.splice(index, 1)
+
+    res.status(200).send("Student Deleted Successfully")
+})
+
+
+module.exports = router

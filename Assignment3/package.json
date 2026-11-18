@@ -1,12 +1,10 @@
 {
-  "name": "assignment3",
+  "name": "assignment_3",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-  "dev": "node --watch server.js"
-  
-  
+  "dev": "node --watch index.js"
   },
   "keywords": [],
   "author": "",

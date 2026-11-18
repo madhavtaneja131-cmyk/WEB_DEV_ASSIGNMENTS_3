@@ -2,19 +2,43 @@ const mongoose = require("mongoose");
 
 const productSchema = new mongoose.Schema(
   {
-    name: { type: String, required: [true, "Name is required"], trim: true, minlength: 2 },
-    sku: { type: String, required: [true, "SKU is required"], unique: true, uppercase: true, trim: true },
-    category: { type: String, required: [true, "Category is required"], trim: true },
-    price: { type: Number, required: [true, "Price is required"], min: [0, "Price cannot be negative"] },
-    quantity: { type: Number, default: 0, min: [0, "Quantity cannot be negative"] },
-    reorderLevel: { type: Number, default: 10, min: [0, "Reorder level cannot be negative"] },
-    supplier: { type: String, trim: true },
+    productName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    productCode: {
+      type: String,
+      required: true,
+      unique: true
+    },
+    category: {
+      type: String,
+      required: true
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    stock: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    reorderLevel: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    supplierName: {
+      type: String,
+      required: true
+    }
   },
-  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
+  { timestamps: true }
 );
 
-productSchema.virtual("stockValue").get(function () {
-  return this.price * this.quantity;
-});
+const Product = mongoose.model("Product", productSchema);
 
-module.exports = mongoose.model("Product", productSchema);
+module.exports = Product;

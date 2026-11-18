@@ -1,12 +1,40 @@
-const router = require("express").Router();
-const c = require("../controllers/productController");
+const express = require("express");
+const router = express.Router();
 
-// Static routes MUST come before "/:id"
-router.get("/low-stock", c.getLowStock);
-router.get("/summary", c.getSummary);
+const { validateProduct } = require("../middleware/errorMiddleware");
+const {
+  addProduct,
+  getProducts,
+  getProductById,
+  updateProduct,
+  adjustStock,
+  deleteProduct,
+  lowStockReport,
+  categorySummary
+} = require("../controllers/productController");
 
-router.route("/").post(c.createProduct).get(c.getProducts);
-router.patch("/:id/stock", c.adjustStock);
-router.route("/:id").get(c.getProductById).put(c.updateProduct).delete(c.deleteProduct);
+// Add a product
+router.post("/", validateProduct, addProduct);
+
+// Get all products
+router.get("/", getProducts);
+
+// Adjust product stock
+router.patch("/:id/stock", adjustStock);
+
+// Update product details
+router.put("/:id", updateProduct);
+
+// Delete a product
+router.delete("/:id", deleteProduct);
+
+// Get a product by ID
+router.get("/:id", getProductById);
+
+// Get low stock report
+router.get("/reports/low-stock", lowStockReport);
+
+// Get category-wise inventory summary
+router.get("/reports/category-summary", categorySummary);
 
 module.exports = router;

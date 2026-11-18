@@ -1,131 +1,196 @@
 const Product = require("../models/Product");
 
-const httpError = (status, message) => Object.assign(new Error(message), { status });
-
-// POST /api/products
-exports.createProduct = async (req, res, next) => {
+// Add a new product
+const addProduct = async (req, res, next) => {
   try {
     const product = await Product.create(req.body);
-    res.status(201).json(product);
-  } catch (err) { next(err); }
+
+    res.status(201).json({
+      message: "Product added successfully",
+      product
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-// GET /api/products?category=&search=&minPrice=&maxPrice=&sort=&page=&limit=
-exports.getProducts = async (req, res, next) => {
+// Get all products with filtering, sorting and pagination
+const getProducts = async (req, res, next) => {
   try {
-    const { category, search, minPrice, maxPrice, sort, page = 1, limit = 10 } = req.query;
-    const filter = {};
+    const { category, sort, page = 1, limit = 10 } = req.query;
 
-    if (category) filter.category = new RegExp(`^${category}$`, "i");
-    if (search) filter.name = new RegExp(search, "i");
-    if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = Number(minPrice);
-      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    let filter = {};
+
+    if (category) {
+      filter.category = category;
     }
 
-    // sort=price,-quantity  ->  "price -quantity"
-    const sortBy = sort ? sort.split(",").join(" ") : "-createdAt";
-    const pageNum = Math.max(Number(page), 1);
-    const limitNum = Math.max(Number(limit), 1);
+    const sortOption = sort ? { price: sort === "desc" ? -1 : 1 } : {};
 
-    const total = await Product.countDocuments(filter);
     const products = await Product.find(filter)
-      .sort(sortBy)
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum);
+      .sort(sortOption)
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
 
-    res.json({
-      total,
-      page: pageNum,
-      totalPages: Math.ceil(total / limitNum),
-      count: products.length,
-      products,
+    res.status(200).json({
+      message: "Products fetched successfully",
+      products
     });
-  } catch (err) { next(err); }
+  } catch (error) {
+    next(error);
+  }
 };
 
-// GET /api/products/:id
-exports.getProductById = async (req, res, next) => {
+// Get a single product by ID
+const getProductById = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (!product) throw httpError(404, "Product not found");
-    res.json(product);
-  } catch (err) { next(err); }
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    res.status(200).json(product);
+  } catch (error) {
+    next(error);
+  }
 };
 
-// PUT /api/products/:id
-exports.updateProduct = async (req, res, next) => {
+// Update product details
+const updateProduct = async (req, res, next) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!product) throw httpError(404, "Product not found");
-    res.json(product);
-  } catch (err) { next(err); }
-};
-
-// PATCH /api/products/:id/stock   body: { "change": 10 } or { "change": -5 }
-exports.adjustStock = async (req, res, next) => {
-  try {
-    const change = Number(req.body.change);
-    if (!Number.isFinite(change) || change === 0)
-      throw httpError(400, "'change' must be a non-zero number");
-
-    // Atomic: decrement only if enough stock exists (no negative stock)
-    const filter = { _id: req.params.id };
-    if (change < 0) filter.quantity = { $gte: -change };
-
-    const product = await Product.findOneAndUpdate(
-      filter,
-      { $inc: { quantity: change } },
-      { new: true }
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
     );
 
     if (!product) {
-      const exists = await Product.exists({ _id: req.params.id });
-      throw exists ? httpError(400, "Insufficient stock") : httpError(404, "Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
-    res.json({ message: "Stock updated", product });
-  } catch (err) { next(err); }
+
+    res.status(200).json({
+      message: "Product updated successfully",
+      product
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-// DELETE /api/products/:id
-exports.deleteProduct = async (req, res, next) => {
+// Adjust stock
+const adjustStock = async (req, res, next) => {
+  try {
+    const { operation, quantity } = req.body;
+
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ message: "Please enter a valid quantity" });
+    }
+
+    if (operation === "restock") {
+      product.stock += quantity;
+    } else if (operation === "sale") {
+      if (product.stock < quantity) {
+        return res.status(400).json({ message: "Insufficient stock available" });
+      }
+
+      product.stock -= quantity;
+    } else {
+      return res.status(400).json({ message: "Invalid stock operation" });
+    }
+
+    await product.save();
+
+    res.status(200).json({
+      message: "Stock adjusted successfully",
+      product
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete a product
+const deleteProduct = async (req, res, next) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) throw httpError(404, "Product not found");
-    res.json({ message: "Product deleted", id: product._id });
-  } catch (err) { next(err); }
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    res.status(200).json({ message: "Product deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
 };
 
-// GET /api/products/low-stock   (quantity <= reorderLevel)
-exports.getLowStock = async (req, res, next) => {
+// Get products that have low stock
+const lowStockReport = async (req, res, next) => {
   try {
-    const items = await Product.aggregate([
-      { $match: { $expr: { $lte: ["$quantity", "$reorderLevel"] } } },
-      { $sort: { quantity: 1 } },
+    const products = await Product.aggregate([
+      {
+        $project: {
+          productName: 1,
+          category: 1,
+          stock: 1,
+          reorderLevel: 1
+        }
+      },
+      {
+        $match: {
+          $expr: { $lte: ["$stock", "$reorderLevel"] }
+        }
+      }
     ]);
-    res.json({ count: items.length, lowStockItems: items });
-  } catch (err) { next(err); }
+
+    res.status(200).json({
+      message: "Low stock report generated successfully",
+      products
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-// GET /api/products/summary   (category-wise aggregation)
-exports.getSummary = async (req, res, next) => {
+// Get category-wise inventory summary
+const categorySummary = async (req, res, next) => {
   try {
     const summary = await Product.aggregate([
       {
         $group: {
           _id: "$category",
-          totalItems: { $sum: 1 },
-          totalQuantity: { $sum: "$quantity" },
-          totalStockValue: { $sum: { $multiply: ["$price", "$quantity"] } },
-          avgPrice: { $avg: "$price" },
-        },
-      },
-      { $sort: { totalStockValue: -1 } },
+          totalProducts: { $sum: 1 },
+          totalStock: { $sum: "$stock" },
+          totalValue: {
+            $sum: { $multiply: ["$price", "$stock"] }
+          }
+        }
+      }
     ]);
-    res.json({ categories: summary.length, summary });
-  } catch (err) { next(err); }
+
+    res.status(200).json({
+      message: "Category summary generated successfully",
+      summary
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  addProduct,
+  getProducts,
+  getProductById,
+  updateProduct,
+  adjustStock,
+  deleteProduct,
+  lowStockReport,
+  categorySummary
 };
